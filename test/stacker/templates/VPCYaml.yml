@@ -1,0 +1,21 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Creates a VPC.
+Parameters:
+  Name:
+    Type: String
+    Description: A name with which to tag this VPC
+  VpcCIDR:
+    Type: String
+    Description: CIDR Block for this VPC
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCIDR
+      Tags:
+        - Key: Name
+          Value: !Ref Name
+Outputs:
+  VpcId:
+    Description: VpcId of the VPC
+    Value: !Ref VPC
