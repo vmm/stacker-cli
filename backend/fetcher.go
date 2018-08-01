@@ -38,15 +38,28 @@ func newFetcher(cs ConfigStore, ts TemplateStore, r ParamsResolver) *fetcher {
 	return &fetcher{cs, ts, r}
 }
 
-func (f *fetcher) Fetch(name string) ([]client.Stack, error) {
-	stacks := make([]client.Stack, 0)
-	stackConfigs, err := f.cs.Fetch(name)
+func (f *fetcher) FetchAll() ([]client.Stack, error) {
+	stackConfigs, err := f.cs.FetchAll()
 	if err != nil {
-		return stacks, fmt.Errorf("unable to fetch stack %s: %s", name, err)
+		return []client.Stack{}, fmt.Errorf("unable to fetch stacks: %s", err)
 	}
 
-	// Fetch the templates for each stack to get a final list of params,
-	// and the template body
+	return f.fetchTemplates(stackConfigs)
+}
+
+func (f *fetcher) Fetch(name string) ([]client.Stack, error) {
+	stackConfigs, err := f.cs.Fetch(name)
+	if err != nil {
+		return []client.Stack{}, fmt.Errorf("unable to fetch stack %s: %s", name, err)
+	}
+
+	return f.fetchTemplates(stackConfigs)
+}
+
+// Fetch the templates for each stack to get a final list of params,
+// and the template body
+func (f *fetcher) fetchTemplates(stackConfigs []stackConfig) ([]client.Stack, error) {
+	stacks := make([]client.Stack, 0)
 	for _, stackConfig := range stackConfigs {
 		t, err := f.ts.Fetch(stackConfig.TemplateName)
 		if err != nil {

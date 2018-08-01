@@ -32,6 +32,35 @@ type Stack interface {
 	Capabilities() []string
 }
 
+// Sortable list of Stacks
+type StackList []Stack
+
+func (s StackList) Len() int {
+	return len(s)
+}
+
+func (s StackList) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+
+func (s StackList) Less(i, j int) bool {
+	return s[i].Name() < s[j].Name()
+}
+
+// Sortable list of StackInfos
+type StackInfoList []*StackInfo
+
+func (s StackInfoList) Len() int {
+	return len(s)
+}
+
+func (s StackInfoList) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+func (s StackInfoList) Less(i, j int) bool {
+	return s[i].Name < s[j].Name
+}
+
 // Client performs Cloudformation actions with the native Stack interface
 type Client struct {
 	cf CloudformationClient
@@ -40,6 +69,58 @@ type Client struct {
 // New returns a new Client given a CloudformationClient
 func New(cf CloudformationClient) *Client {
 	return &Client{cf: cf}
+}
+
+func (c *Client) ListStacks() ([]*StackInfo, error) {
+	stackInfos := []*StackInfo{}
+
+	err := c.cf.ListStacksPages(&cf.ListStacksInput{
+		StackStatusFilter: []*string{
+			aws.String(cf.StackStatusCreateComplete),
+			aws.String(cf.StackStatusRollbackFailed),
+			aws.String(cf.StackStatusRollbackComplete),
+			aws.String(cf.StackStatusDeleteFailed),
+			aws.String(cf.StackStatusUpdateComplete),
+			aws.String(cf.StackStatusUpdateRollbackFailed),
+			aws.String(cf.StackStatusUpdateRollbackComplete),
+			aws.String(cf.StackStatusCreateInProgress),
+			aws.String(cf.StackStatusRollbackInProgress),
+			aws.String(cf.StackStatusUpdateInProgress),
+			aws.String(cf.StackStatusUpdateCompleteCleanupInProgress),
+			aws.String(cf.StackStatusUpdateRollbackInProgress),
+			aws.String(cf.StackStatusUpdateRollbackCompleteCleanupInProgress),
+		},
+	}, func(output *cf.ListStacksOutput, last bool) bool {
+		for _, s := range output.StackSummaries {
+			si := &StackInfo{
+				ID:              deref(s.StackId),
+				Name:            *s.StackName,
+				Status:          *s.StackStatus,
+				CreationTime:    *s.CreationTime,
+				LastUpdatedTime: *s.CreationTime,
+				Params:          StackParamInfos{},
+				Outputs:         StackOutputInfos{},
+			}
+
+			if s.LastUpdatedTime != nil {
+				si.LastUpdatedTime = *s.LastUpdatedTime
+			}
+
+			stackInfos = append(stackInfos, si)
+		}
+
+		return true
+	})
+
+	if err != nil {
+		rerr, ok := err.(awserr.RequestFailure)
+		if !ok || (rerr.StatusCode() != 400 && rerr.Code() != "ValidationError") {
+			return nil, errors.Wrap(err, "unable to fetch stack")
+		}
+		return nil, nil
+	}
+
+	return stackInfos, nil
 }
 
 // Exists checks the existence of a stack provided its name

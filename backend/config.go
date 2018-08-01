@@ -29,6 +29,7 @@ type stackConfig struct {
 }
 
 type ConfigStore interface {
+	FetchAll() ([]stackConfig, error)
 	Fetch(name string) ([]stackConfig, error)
 }
 
@@ -47,12 +48,20 @@ func newConfigStore(path string) *configStore {
 	return &configStore{path: path}
 }
 
+func (s *configStore) FetchAll() ([]stackConfig, error) {
+	return s.fetch(nil)
+}
+
+func (s *configStore) Fetch(name string) ([]stackConfig, error) {
+	return s.fetch(&name)
+}
+
 // Fetch returns a slice of stacks that match the provided stack name.
 // Each stackConfig will contain all of the inherited parameters from
 // the parent config file(s)
-func (s *configStore) Fetch(name string) ([]stackConfig, error) {
-	// Fetch the config files from disk
-	if err := s.fetch(); err != nil {
+func (s *configStore) fetch(name *string) ([]stackConfig, error) {
+	// Load the config files from disk
+	if err := s.load(); err != nil {
 		return nil, err
 	}
 
@@ -60,7 +69,7 @@ func (s *configStore) Fetch(name string) ([]stackConfig, error) {
 
 	for path, config := range s.d {
 		for _, stack := range config.Stacks {
-			if stack.Name == name {
+			if name == nil || stack.Name == *name {
 				scs = append(scs, s.resolveStack(path, stack))
 			}
 		}
@@ -86,6 +95,14 @@ func (s *configStore) resolveStack(path string, st stackConfig) stackConfig {
 			stack.Region = c.Defaults.Region
 		}
 
+		if stack.Parameters == nil {
+			stack.Parameters = map[string]interface{}{}
+		}
+
+		if stack.TemplateName == "" {
+			stack.TemplateName = stack.Name
+		}
+
 		for k, v := range c.Defaults.Parameters {
 			if _, ok := stack.Parameters[k]; ok {
 				continue
@@ -100,7 +117,7 @@ func (s *configStore) resolveStack(path string, st stackConfig) stackConfig {
 	return stack
 }
 
-// fetch loads all the config files from disk and stores them into a mapping
+// loads all the config files from disk and stores them into a mapping
 // of config path to configuration struct.
 //
 // for example:
@@ -108,7 +125,7 @@ func (s *configStore) resolveStack(path string, st stackConfig) stackConfig {
 //   production/vpc => config (params here will inherit from production)
 //   sandbox => config
 //   sandbox/vpc => config (params here will inherit from sandbox)
-func (s *configStore) fetch() error {
+func (s *configStore) load() error {
 	if s.d != nil {
 		return nil
 	}

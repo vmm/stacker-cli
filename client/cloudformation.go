@@ -19,6 +19,7 @@ type CloudformationClient interface {
 	ExecuteChangeSet(*cf.ExecuteChangeSetInput) (*cf.ExecuteChangeSetOutput, error)
 	GetTemplate(*cf.GetTemplateInput) (*cf.GetTemplateOutput, error)
 	ListChangeSets(input *cf.ListChangeSetsInput) (*cf.ListChangeSetsOutput, error)
+	ListStacksPages(input *cf.ListStacksInput, fn func(*cf.ListStacksOutput, bool) bool) error
 	WaitUntilChangeSetCreateCompleteWithContext(ctx aws.Context, input *cf.DescribeChangeSetInput, opts ...request.WaiterOption) error
 }
 

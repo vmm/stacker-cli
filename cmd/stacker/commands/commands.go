@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -29,7 +30,31 @@ func newStackerClient(region string) *client.Client {
 }
 
 type Backend interface {
+	FetchAll() ([]client.Stack, error)
 	Fetch(name string) ([]client.Stack, error)
+}
+
+func List(b Backend) func(cmd *cli.Cmd) {
+	return func(cmd *cli.Cmd) {
+		var (
+			region = cmd.StringOpt("r remote", "", "List remote stacks in region")
+		)
+
+		cmd.Spec = "[-r=<region>] [--remote=<region>]"
+
+		cmd.Action = func() {
+			var err error
+			if *region != "" {
+				err = listRemote(b, *region)
+			} else {
+				err = listLocal(b)
+			}
+
+			if err != nil {
+				exitWithError(err)
+			}
+		}
+	}
 }
 
 func Update(b Backend) func(cmd *cli.Cmd) {
@@ -234,7 +259,7 @@ func Delete(b Backend) func(cmd *cli.Cmd) {
 
 			fmt.Println()
 
-			if err := delete(stacker, *stackName); err != nil {
+			if err := deleteStack(stacker, *stackName); err != nil {
 				exitWithError(err)
 			}
 		}
@@ -263,6 +288,125 @@ func Show(b Backend) func(cmd *cli.Cmd) {
 			}
 		}
 	}
+}
+
+func fetchLocal(b Backend) ([]client.Stack, error) {
+	stacks, err := b.FetchAll()
+	if err != nil {
+		return nil, err
+	}
+
+	sort.Sort(client.StackList(stacks))
+	return stacks, nil
+}
+
+func fetchRemote(region string) ([]*client.StackInfo, error) {
+	cli := newStackerClient(region)
+	stacks, err := cli.ListStacks()
+	if err != nil {
+		return nil, err
+	}
+
+	sort.Sort(client.StackInfoList(stacks))
+	return stacks, nil
+}
+
+func compareWithRemote(local []client.Stack) ([]string, error) {
+	remoteByRegion := make(map[string][]*client.StackInfo)
+	for _, s := range local {
+		if _, ok := remoteByRegion[s.Region()]; ok {
+			continue
+		}
+
+		remote, err := fetchRemote(s.Region())
+		if err != nil {
+			return nil, err
+		}
+		remoteByRegion[s.Region()] = remote
+	}
+
+	statuses := make([]string, len(local))
+	for i, s := range local {
+		statuses[i] = "not created"
+		for _, existing := range remoteByRegion[s.Region()] {
+			if s.Name() == existing.Name {
+				statuses[i] = ""
+				break
+			}
+		}
+	}
+
+	return statuses, nil
+}
+
+func listLocal(b Backend) error {
+	var (
+		data  [][]string
+		table *tablewriter.Table
+	)
+
+	stacks, err := fetchLocal(b)
+	if err != nil {
+		return errors.Wrap(err, "failed to fetch stacks")
+	}
+
+	statuses, err := compareWithRemote(stacks)
+	if err != nil {
+		return errors.Wrap(err, "failed to fetch remote stacks")
+	}
+
+	data = make([][]string, len(stacks))
+	for i, s := range stacks {
+		data[i] = []string{
+			bold(cyan(s.Name())),
+			bold(s.Region()),
+			bold(statuses[i]),
+		}
+	}
+
+	fmt.Printf("%s:\n", bold("Stacks"))
+	table = tablewriter.NewWriter(os.Stdout)
+	table.SetColumnSeparator("")
+	table.SetBorder(false)
+	table.SetAutoWrapText(false)
+	table.AppendBulk(data)
+	table.Render()
+
+	return nil
+}
+
+func listRemote(b Backend, region string) error {
+	remote, err := fetchRemote(region)
+	if err != nil {
+		return errors.Wrap(err, "failed to fetch remote stacks")
+	}
+
+	data := make([][]string, len(remote))
+	for i, stack := range remote {
+		status := ""
+		local, err := b.Fetch(stack.Name)
+		if err != nil {
+			return errors.Wrap(err, "failed to fetch stack information")
+		}
+		if len(local) == 0 {
+			status = "orphaned"
+		}
+		data[i] = []string{
+			bold(cyan(stack.Name)),
+			bold(region),
+			bold(status),
+		}
+	}
+
+	fmt.Printf("%s:\n", bold("Stacks"))
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetColumnSeparator("")
+	table.SetBorder(false)
+	table.SetAutoWrapText(false)
+	table.AppendBulk(data)
+	table.Render()
+
+	return nil
 }
 
 func fetchStack(b Backend, name string) client.Stack {
@@ -389,7 +533,7 @@ func show(stacker *client.Client, stackName string) error {
 }
 
 // Delete removes a stack
-func delete(stacker *client.Client, stackName string) error {
+func deleteStack(stacker *client.Client, stackName string) error {
 	fmt.Printf("%s %s\n", bold("Deleting stack"), cyan(stackName))
 
 	if err := stacker.Delete(stackName); err != nil {

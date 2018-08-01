@@ -30,6 +30,10 @@ func New(dir string) *backend {
 	return &backend{f: f}
 }
 
+func (b *backend) FetchAll() ([]client.Stack, error) {
+	return b.f.FetchAll()
+}
+
 func (b *backend) Fetch(name string) ([]client.Stack, error) {
 	return b.f.Fetch(name)
 }
