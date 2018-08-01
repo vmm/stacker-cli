@@ -1,0 +1,10 @@
+defaults:
+  region: us-east-2
+  parameters:
+stacks:
+  - name: Foo-VPC
+    capabilities: CAPABILITIES_IAM
+    template_name: VPC
+    parameters:
+      Name: SandboxVPC
+      VpcCIDR: 10.11.0.0/16

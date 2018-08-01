@@ -1,0 +1,6 @@
+defaults:
+  region: us-west-2
+  parameters:
+    VpcCIDR: 10.21.0.0/16
+    Bar: 123abc
+stacks:

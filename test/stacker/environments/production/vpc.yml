@@ -1,0 +1,11 @@
+defaults:
+  region: us-west-2
+  parameters:
+    VpcCIDR: 10.21.0.0/16
+stacks:
+  - name: Foo-VPC
+    capabilities: CAPABILITIES_IAM
+    template_name: VPC
+    parameters:
+      Name: ProductionVPC
+
