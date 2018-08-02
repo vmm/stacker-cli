@@ -5,11 +5,13 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/eyeamera/stacker-cli/client"
+	"github.com/eyeamera/stacker-cli/stacker"
 	"github.com/fatih/color"
 	"github.com/jawher/mow.cli"
 	"github.com/olekukonko/tablewriter"
@@ -29,14 +31,38 @@ func newStackerClient(region string) *client.Client {
 }
 
 type Backend interface {
-	Fetch(name string) ([]client.Stack, error)
+	FetchAll() ([]stacker.Stack, error)
+	Fetch(name string) ([]stacker.Stack, error)
+}
+
+func List(b Backend) func(cmd *cli.Cmd) {
+	return func(cmd *cli.Cmd) {
+		var (
+			region = cmd.StringOpt("r remote", "", "List remote stacks in region")
+		)
+
+		cmd.Spec = "[-r=<region>] [--remote=<region>]"
+
+		cmd.Action = func() {
+			var err error
+			if *region != "" {
+				err = listRemote(b, *region)
+			} else {
+				err = listLocal(b)
+			}
+
+			if err != nil {
+				exitWithError(err)
+			}
+		}
+	}
 }
 
 func Update(b Backend) func(cmd *cli.Cmd) {
 	return func(cmd *cli.Cmd) {
 		var (
-			stack            client.Stack
-			stacker          *client.Client
+			stack            stacker.Stack
+			stackerCli       *client.Client
 			stackName        = cmd.StringArg("STACK", "", "Stack name")
 			allowDestructive = cmd.Bool(cli.BoolOpt{
 				Name:  "y allow-destructive",
@@ -49,22 +75,22 @@ func Update(b Backend) func(cmd *cli.Cmd) {
 
 		cmd.Before = func() {
 			stack = fetchStack(b, *stackName)
-			stacker = newStackerClient(stack.Region())
+			stackerCli = newStackerClient(stack.Region())
 		}
 
 		cmd.Action = func() {
-			cs, err := plan(stacker, stack)
+			cs, err := plan(stackerCli, stack)
 			if err != nil {
 				exitWithError(err)
 			}
 
-			review(stacker, cs)
+			review(stackerCli, cs)
 
 			if !confirmChanges(cs, *allowDestructive) {
 				os.Exit(1)
 			}
 
-			if err := apply(stacker, cs); err != nil {
+			if err := apply(stackerCli, cs); err != nil {
 				exitWithError(err)
 			}
 
@@ -76,20 +102,20 @@ func Update(b Backend) func(cmd *cli.Cmd) {
 func Plan(b Backend) func(cmd *cli.Cmd) {
 	return func(cmd *cli.Cmd) {
 		var (
-			stack     client.Stack
-			stacker   *client.Client
-			stackName = cmd.StringArg("STACK", "", "Stack name")
+			stack      stacker.Stack
+			stackerCli *client.Client
+			stackName  = cmd.StringArg("STACK", "", "Stack name")
 		)
 
 		cmd.Spec = "STACK"
 
 		cmd.Before = func() {
 			stack = fetchStack(b, *stackName)
-			stacker = newStackerClient(stack.Region())
+			stackerCli = newStackerClient(stack.Region())
 		}
 
 		cmd.Action = func() {
-			cs, err := plan(stacker, stack)
+			cs, err := plan(stackerCli, stack)
 			if err != nil {
 				exitWithError(err)
 			}
@@ -116,10 +142,10 @@ func Plan(b Backend) func(cmd *cli.Cmd) {
 func Review(b Backend) func(cmd *cli.Cmd) {
 	return func(cmd *cli.Cmd) {
 		var (
-			stack     client.Stack
-			stacker   *client.Client
-			stackName = cmd.StringArg("STACK", "", "Stack name")
-			changeSet = cmd.StringArg("CHANGESET", "", "Changeset name")
+			stack      stacker.Stack
+			stackerCli *client.Client
+			stackName  = cmd.StringArg("STACK", "", "Stack name")
+			changeSet  = cmd.StringArg("CHANGESET", "", "Changeset name")
 		)
 
 		// @TODO Allow stack to not exist locally for this
@@ -128,17 +154,17 @@ func Review(b Backend) func(cmd *cli.Cmd) {
 
 		cmd.Before = func() {
 			stack = fetchStack(b, *stackName)
-			stacker = newStackerClient(stack.Region())
-			ensureStackExists(stacker, *stackName)
+			stackerCli = newStackerClient(stack.Region())
+			ensureStackExists(stackerCli, *stackName)
 		}
 
 		cmd.Action = func() {
-			cs, err := fetchChangeSet(stacker, *stackName, *changeSet)
+			cs, err := fetchChangeSet(stackerCli, *stackName, *changeSet)
 			if err != nil {
 				exitWithError(err)
 			}
 
-			review(stacker, cs)
+			review(stackerCli, cs)
 
 			if !cs.CanCommit() {
 				return
@@ -156,8 +182,8 @@ func Review(b Backend) func(cmd *cli.Cmd) {
 func Apply(b Backend) func(cmd *cli.Cmd) {
 	return func(cmd *cli.Cmd) {
 		var (
-			stack            client.Stack
-			stacker          *client.Client
+			stack            stacker.Stack
+			stackerCli       *client.Client
 			stackName        = cmd.StringArg("STACK", "", "Stack name")
 			changeSet        = cmd.StringArg("CHANGESET", "", "Changeset name")
 			allowDestructive = cmd.Bool(cli.BoolOpt{
@@ -173,23 +199,23 @@ func Apply(b Backend) func(cmd *cli.Cmd) {
 
 		cmd.Before = func() {
 			stack = fetchStack(b, *stackName)
-			stacker = newStackerClient(stack.Region())
-			ensureStackExists(stacker, *stackName)
+			stackerCli = newStackerClient(stack.Region())
+			ensureStackExists(stackerCli, *stackName)
 		}
 
 		cmd.Action = func() {
-			cs, err := fetchChangeSet(stacker, *stackName, *changeSet)
+			cs, err := fetchChangeSet(stackerCli, *stackName, *changeSet)
 			if err != nil {
 				exitWithError(err)
 			}
 
-			review(stacker, cs)
+			review(stackerCli, cs)
 
 			if !confirmChanges(cs, *allowDestructive) {
 				os.Exit(1)
 			}
 
-			if err := apply(stacker, cs); err != nil {
+			if err := apply(stackerCli, cs); err != nil {
 				exitWithError(err)
 			}
 
@@ -207,9 +233,9 @@ func Apply(b Backend) func(cmd *cli.Cmd) {
 func Delete(b Backend) func(cmd *cli.Cmd) {
 	return func(cmd *cli.Cmd) {
 		var (
-			stack     client.Stack
-			stacker   *client.Client
-			stackName = cmd.StringArg("STACK", "", "Stack name")
+			stack      stacker.Stack
+			stackerCli *client.Client
+			stackName  = cmd.StringArg("STACK", "", "Stack name")
 		)
 
 		// @TODO Allow stack to not exist locally for this
@@ -218,8 +244,8 @@ func Delete(b Backend) func(cmd *cli.Cmd) {
 
 		cmd.Before = func() {
 			stack = fetchStack(b, *stackName)
-			stacker = newStackerClient(stack.Region())
-			ensureStackExists(stacker, *stackName)
+			stackerCli = newStackerClient(stack.Region())
+			ensureStackExists(stackerCli, *stackName)
 		}
 
 		cmd.Action = func() {
@@ -234,7 +260,7 @@ func Delete(b Backend) func(cmd *cli.Cmd) {
 
 			fmt.Println()
 
-			if err := delete(stacker, *stackName); err != nil {
+			if err := deleteStack(stackerCli, *stackName); err != nil {
 				exitWithError(err)
 			}
 		}
@@ -244,28 +270,147 @@ func Delete(b Backend) func(cmd *cli.Cmd) {
 func Show(b Backend) func(cmd *cli.Cmd) {
 	return func(cmd *cli.Cmd) {
 		var (
-			stack     client.Stack
-			stacker   *client.Client
-			stackName = cmd.StringArg("STACK", "", "Stack name")
+			stack      stacker.Stack
+			stackerCli *client.Client
+			stackName  = cmd.StringArg("STACK", "", "Stack name")
 		)
 
 		cmd.Spec = "STACK"
 
 		cmd.Before = func() {
 			stack = fetchStack(b, *stackName)
-			stacker = newStackerClient(stack.Region())
-			ensureStackExists(stacker, *stackName)
+			stackerCli = newStackerClient(stack.Region())
+			ensureStackExists(stackerCli, *stackName)
 		}
 
 		cmd.Action = func() {
-			if err := show(stacker, *stackName); err != nil {
+			if err := show(stackerCli, *stackName); err != nil {
 				exitWithError(err)
 			}
 		}
 	}
 }
 
-func fetchStack(b Backend, name string) client.Stack {
+func fetchLocal(b Backend) ([]stacker.Stack, error) {
+	stacks, err := b.FetchAll()
+	if err != nil {
+		return nil, err
+	}
+
+	sort.Sort(stacker.StackList(stacks))
+	return stacks, nil
+}
+
+func fetchRemote(region string) ([]*client.StackInfo, error) {
+	cli := newStackerClient(region)
+	stacks, err := cli.ListStacks()
+	if err != nil {
+		return nil, err
+	}
+
+	sort.Sort(client.StackInfoList(stacks))
+	return stacks, nil
+}
+
+func compareWithRemote(local []stacker.Stack) ([]string, error) {
+	remoteByRegion := make(map[string][]*client.StackInfo)
+	for _, s := range local {
+		if _, ok := remoteByRegion[s.Region()]; ok {
+			continue
+		}
+
+		remote, err := fetchRemote(s.Region())
+		if err != nil {
+			return nil, err
+		}
+		remoteByRegion[s.Region()] = remote
+	}
+
+	statuses := make([]string, len(local))
+	for i, s := range local {
+		statuses[i] = "not created"
+		for _, existing := range remoteByRegion[s.Region()] {
+			if s.Name() == existing.Name {
+				statuses[i] = ""
+				break
+			}
+		}
+	}
+
+	return statuses, nil
+}
+
+func listLocal(b Backend) error {
+	var (
+		data  [][]string
+		table *tablewriter.Table
+	)
+
+	stacks, err := fetchLocal(b)
+	if err != nil {
+		return errors.Wrap(err, "failed to fetch stacks")
+	}
+
+	statuses, err := compareWithRemote(stacks)
+	if err != nil {
+		return errors.Wrap(err, "failed to fetch remote stacks")
+	}
+
+	data = make([][]string, len(stacks))
+	for i, s := range stacks {
+		data[i] = []string{
+			bold(cyan(s.Name())),
+			bold(s.Region()),
+			bold(statuses[i]),
+		}
+	}
+
+	fmt.Printf("%s:\n", bold("Stacks"))
+	table = tablewriter.NewWriter(os.Stdout)
+	table.SetColumnSeparator("")
+	table.SetBorder(false)
+	table.SetAutoWrapText(false)
+	table.AppendBulk(data)
+	table.Render()
+
+	return nil
+}
+
+func listRemote(b Backend, region string) error {
+	remote, err := fetchRemote(region)
+	if err != nil {
+		return errors.Wrap(err, "failed to fetch remote stacks")
+	}
+
+	data := make([][]string, len(remote))
+	for i, stack := range remote {
+		status := ""
+		local, err := b.Fetch(stack.Name)
+		if err != nil {
+			return errors.Wrap(err, "failed to fetch stack information")
+		}
+		if len(local) == 0 {
+			status = "orphaned"
+		}
+		data[i] = []string{
+			bold(cyan(stack.Name)),
+			bold(region),
+			bold(status),
+		}
+	}
+
+	fmt.Printf("%s:\n", bold("Stacks"))
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetColumnSeparator("")
+	table.SetBorder(false)
+	table.SetAutoWrapText(false)
+	table.AppendBulk(data)
+	table.Render()
+
+	return nil
+}
+
+func fetchStack(b Backend, name string) stacker.Stack {
 	s, err := b.Fetch(name)
 	if err != nil {
 		exitWithError(err)
@@ -283,7 +428,7 @@ func fetchStack(b Backend, name string) client.Stack {
 }
 
 // Plan creates a new changeset given a client and a stack
-func plan(stacker *client.Client, stack client.Stack) (*client.ChangeSetInfo, error) {
+func plan(stacker *client.Client, stack stacker.Stack) (*client.ChangeSetInfo, error) {
 	var (
 		si  *client.StackInfo
 		cs  *client.ChangeSetInfo
@@ -389,7 +534,7 @@ func show(stacker *client.Client, stackName string) error {
 }
 
 // Delete removes a stack
-func delete(stacker *client.Client, stackName string) error {
+func deleteStack(stacker *client.Client, stackName string) error {
 	fmt.Printf("%s %s\n", bold("Deleting stack"), cyan(stackName))
 
 	if err := stacker.Delete(stackName); err != nil {

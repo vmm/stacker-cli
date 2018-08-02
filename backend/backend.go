@@ -4,7 +4,7 @@ import (
 	"os"
 	"path"
 
-	"github.com/eyeamera/stacker-cli/client"
+	"github.com/eyeamera/stacker-cli/stacker"
 )
 
 type backend struct {
@@ -30,7 +30,11 @@ func New(dir string) *backend {
 	return &backend{f: f}
 }
 
-func (b *backend) Fetch(name string) ([]client.Stack, error) {
+func (b *backend) FetchAll() ([]stacker.Stack, error) {
+	return b.f.FetchAll()
+}
+
+func (b *backend) Fetch(name string) ([]stacker.Stack, error) {
 	return b.f.Fetch(name)
 }
 

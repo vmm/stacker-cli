@@ -4,14 +4,10 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/eyeamera/stacker-cli/client"
 	"github.com/pkg/errors"
-)
 
-// A subset of client.Stack available for resolvers
-type StackInfo interface {
-	Region() string
-}
+	"github.com/eyeamera/stacker-cli/stacker"
+)
 
 // Implements client.StackParam
 type stackParam struct {
@@ -26,10 +22,10 @@ func (sp *stackParam) UsePrevious() bool { return sp.usePrevious }
 
 type RawParams map[string]interface{}
 
-type Resolver func(key string, param interface{}, stack StackInfo) (client.StackParam, error)
+type Resolver func(key string, param interface{}, stack stacker.Stack) (stacker.StackParam, error)
 
 type ParamsResolver interface {
-	Resolve(rp RawParams, stack StackInfo) (client.StackParams, error)
+	Resolve(rp RawParams, stack stacker.Stack) ([]stacker.StackParam, error)
 }
 
 type paramsResolver struct {
@@ -46,8 +42,8 @@ func (pr *paramsResolver) Add(key string, r Resolver) {
 	pr.resolvers[key] = r
 }
 
-func (pr *paramsResolver) Resolve(rp RawParams, stack StackInfo) (client.StackParams, error) {
-	sp := make(client.StackParams, 0)
+func (pr *paramsResolver) Resolve(rp RawParams, stack stacker.Stack) ([]stacker.StackParam, error) {
+	sp := make([]stacker.StackParam, 0)
 	for k, v := range rp {
 		r, err := pr.resolve(k, v, stack)
 		if err != nil {
@@ -59,7 +55,7 @@ func (pr *paramsResolver) Resolve(rp RawParams, stack StackInfo) (client.StackPa
 	return sp, nil
 }
 
-func (pr *paramsResolver) resolve(k string, v interface{}, stack StackInfo) (client.StackParam, error) {
+func (pr *paramsResolver) resolve(k string, v interface{}, stack stacker.Stack) (stacker.StackParam, error) {
 	original := reflect.ValueOf(v)
 	switch original.Kind() {
 	case reflect.Map:
