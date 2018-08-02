@@ -6,8 +6,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/eyeamera/stacker-cli/client"
 	"github.com/pkg/errors"
+
+	"github.com/eyeamera/stacker-cli/client"
+	"github.com/eyeamera/stacker-cli/stacker"
 )
 
 // ResolveStackOutput provides a mechanism to lookup an output from a stack within
@@ -20,7 +22,7 @@ import (
 //       Stack: Foo-VPC.VpcID
 //
 // where 'Foo-VPC' is the stack name, and 'VpcId' is the stack output
-func ResolveStackOutput(key string, param interface{}, stack StackInfo) (client.StackParam, error) {
+func ResolveStackOutput(key string, param interface{}, stack stacker.Stack) (stacker.StackParam, error) {
 	s := strings.SplitN(fmt.Sprint(param), ".", 2)
 	if len(s) != 2 {
 		return nil, fmt.Errorf("expected to receive input in format <stack>.<output>")
@@ -42,7 +44,7 @@ func ResolveStackOutput(key string, param interface{}, stack StackInfo) (client.
 	return nil, fmt.Errorf("unable to find output `%s` on stack `%s`", outputName, stackName)
 }
 
-func ResolveFile(key string, param interface{}, stack StackInfo) (client.StackParam, error) {
+func ResolveFile(key string, param interface{}, stack stacker.Stack) (stacker.StackParam, error) {
 	path := fmt.Sprint(param)
 	r, err := os.Open(path)
 	if err != nil {

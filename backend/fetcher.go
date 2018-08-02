@@ -3,7 +3,7 @@ package backend
 import (
 	"fmt"
 
-	"github.com/eyeamera/stacker-cli/client"
+	"github.com/eyeamera/stacker-cli/stacker"
 )
 
 type stack struct {
@@ -24,7 +24,7 @@ func (s *stack) Capabilities() []string {
 	return nil
 }
 func (s *stack) Region() string { return s.region }
-func (s *stack) Params() (client.StackParams, error) {
+func (s *stack) Params() ([]stacker.StackParam, error) {
 	return s.resolver.Resolve(s.rawParameters, s)
 }
 
@@ -38,19 +38,19 @@ func newFetcher(cs ConfigStore, ts TemplateStore, r ParamsResolver) *fetcher {
 	return &fetcher{cs, ts, r}
 }
 
-func (f *fetcher) FetchAll() ([]client.Stack, error) {
+func (f *fetcher) FetchAll() ([]stacker.Stack, error) {
 	stackConfigs, err := f.cs.FetchAll()
 	if err != nil {
-		return []client.Stack{}, fmt.Errorf("unable to fetch stacks: %s", err)
+		return []stacker.Stack{}, fmt.Errorf("unable to fetch stacks: %s", err)
 	}
 
 	return f.fetchTemplates(stackConfigs)
 }
 
-func (f *fetcher) Fetch(name string) ([]client.Stack, error) {
+func (f *fetcher) Fetch(name string) ([]stacker.Stack, error) {
 	stackConfigs, err := f.cs.Fetch(name)
 	if err != nil {
-		return []client.Stack{}, fmt.Errorf("unable to fetch stack %s: %s", name, err)
+		return []stacker.Stack{}, fmt.Errorf("unable to fetch stack %s: %s", name, err)
 	}
 
 	return f.fetchTemplates(stackConfigs)
@@ -58,8 +58,8 @@ func (f *fetcher) Fetch(name string) ([]client.Stack, error) {
 
 // Fetch the templates for each stack to get a final list of params,
 // and the template body
-func (f *fetcher) fetchTemplates(stackConfigs []stackConfig) ([]client.Stack, error) {
-	stacks := make([]client.Stack, 0)
+func (f *fetcher) fetchTemplates(stackConfigs []stackConfig) ([]stacker.Stack, error) {
+	stacks := make([]stacker.Stack, 0)
 	for _, stackConfig := range stackConfigs {
 		t, err := f.ts.Fetch(stackConfig.TemplateName)
 		if err != nil {

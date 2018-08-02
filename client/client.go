@@ -11,41 +11,9 @@ import (
 	"github.com/aws/aws-sdk-go/aws/request"
 	cf "github.com/aws/aws-sdk-go/service/cloudformation"
 	"github.com/pkg/errors"
+
+	"github.com/eyeamera/stacker-cli/stacker"
 )
-
-// StackParam represents a stack parameter
-type StackParam interface {
-	Key() string
-	Value() string
-	UsePrevious() bool
-}
-
-// StackParams represents an set of StackParam
-type StackParams []StackParam
-
-// Stack interface for creating and updating stacks
-type Stack interface {
-	Name() string
-	Region() string
-	Params() (StackParams, error)
-	TemplateBody() string
-	Capabilities() []string
-}
-
-// Sortable list of Stacks
-type StackList []Stack
-
-func (s StackList) Len() int {
-	return len(s)
-}
-
-func (s StackList) Swap(i, j int) {
-	s[i], s[j] = s[j], s[i]
-}
-
-func (s StackList) Less(i, j int) bool {
-	return s[i].Name() < s[j].Name()
-}
 
 // Sortable list of StackInfos
 type StackInfoList []*StackInfo
@@ -216,7 +184,7 @@ func (c *Client) GetEvents(stackName string) (StackEvents, error) {
 }
 
 // Create creates a changeset for creating a new stack
-func (c *Client) Create(s Stack) (*ChangeSetInfo, error) {
+func (c *Client) Create(s stacker.Stack) (*ChangeSetInfo, error) {
 	changeSetName, err := changeSetName()
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create changeset name")
@@ -226,7 +194,7 @@ func (c *Client) Create(s Stack) (*ChangeSetInfo, error) {
 }
 
 // Update creates a changeset for updating an existing stack
-func (c *Client) Update(s Stack) (*ChangeSetInfo, error) {
+func (c *Client) Update(s stacker.Stack) (*ChangeSetInfo, error) {
 	changeSetName, err := changeSetName()
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create changeset name")
@@ -347,7 +315,7 @@ func (c *Client) WaitForStackComplete(stackName string) error {
 	return w.WaitWithContext(ctx)
 }
 
-func (c *Client) createChangeSet(typ string, changeSetName string, s Stack) (*ChangeSetInfo, error) {
+func (c *Client) createChangeSet(typ string, changeSetName string, s stacker.Stack) (*ChangeSetInfo, error) {
 	if !(typ == cf.ChangeSetTypeCreate || typ == cf.ChangeSetTypeUpdate) {
 		return nil, fmt.Errorf("unknown changeset type \"%s\"", typ)
 	}
@@ -380,7 +348,7 @@ func (c *Client) createChangeSet(typ string, changeSetName string, s Stack) (*Ch
 	return c.GetChangeSet(s.Name(), changeSetName)
 }
 
-func cfParams(sp StackParams) []*cf.Parameter {
+func cfParams(sp stacker.StackParams) []*cf.Parameter {
 	params := make([]*cf.Parameter, len(sp))
 	for i, p := range sp {
 		param := &cf.Parameter{ParameterKey: aws.String(p.Key())}
