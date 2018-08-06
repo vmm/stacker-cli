@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/eyeamera/stacker-cli/client"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/eyeamera/stacker-cli/stacker"
 )
 
 func TestParamsResolverResolve(t *testing.T) {
@@ -20,7 +21,7 @@ func TestParamsResolverResolve(t *testing.T) {
 		"arrdeep": []interface{}{"a", []interface{}{1, "2", 3.14}, false},
 	}
 
-	expected := client.StackParams{
+	expected := []stacker.StackParam{
 		&stackParam{key: "str", value: "bar"},
 		&stackParam{key: "int", value: "123"},
 		&stackParam{key: "bool", value: "true"},
@@ -36,7 +37,7 @@ func TestParamsResolverResolve(t *testing.T) {
 }
 
 func TestParamsResolverCustomResolve(t *testing.T) {
-	greet := func(key string, param interface{}, stack StackInfo) (client.StackParam, error) {
+	greet := func(key string, param interface{}, stack stacker.Stack) (stacker.StackParam, error) {
 		name := fmt.Sprint(param)
 		return &stackParam{
 			key:   key,
@@ -53,7 +54,7 @@ func TestParamsResolverCustomResolve(t *testing.T) {
 		},
 	}
 
-	expected := client.StackParams{
+	expected := []stacker.StackParam{
 		&stackParam{key: "param1", value: "Hello, paul"},
 	}
 
@@ -64,7 +65,7 @@ func TestParamsResolverCustomResolve(t *testing.T) {
 }
 
 func TestParamsResolverMultipleCustomResolve(t *testing.T) {
-	greet := func(key string, param interface{}, stack StackInfo) (client.StackParam, error) {
+	greet := func(key string, param interface{}, stack stacker.Stack) (stacker.StackParam, error) {
 		name := fmt.Sprint(param)
 		return &stackParam{
 			key:   key,
@@ -82,7 +83,7 @@ func TestParamsResolverMultipleCustomResolve(t *testing.T) {
 		},
 	}
 
-	expected := client.StackParams{
+	expected := []stacker.StackParam{
 		&stackParam{key: "param1", value: "Hello, alice,Hello, bob"},
 	}
 
