@@ -9,21 +9,16 @@ import (
 type stack struct {
 	name          string
 	region        string
-	capabilities  string
+	capabilities  []string
 	templateBody  string
 	rawParameters RawParams
 	resolver      ParamsResolver
 }
 
-func (s *stack) Name() string         { return s.name }
-func (s *stack) TemplateBody() string { return s.templateBody }
-func (s *stack) Capabilities() []string {
-	if s.capabilities != "" {
-		return []string{s.capabilities}
-	}
-	return nil
-}
-func (s *stack) Region() string { return s.region }
+func (s *stack) Name() string           { return s.name }
+func (s *stack) TemplateBody() string   { return s.templateBody }
+func (s *stack) Capabilities() []string { return s.capabilities }
+func (s *stack) Region() string         { return s.region }
 func (s *stack) Params() ([]stacker.StackParam, error) {
 	return s.resolver.Resolve(s.rawParameters, s)
 }

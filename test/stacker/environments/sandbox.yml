@@ -3,7 +3,7 @@ defaults:
   parameters:
 stacks:
   - name: Foo-VPC
-    capabilities: CAPABILITIES_IAM
+    capabilities: [CAPABILITIES_IAM]
     template_name: VPC
     parameters:
       Name: SandboxVPC
