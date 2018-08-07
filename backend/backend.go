@@ -11,11 +11,20 @@ type backend struct {
 	f *fetcher
 }
 
-func New(dir string) *backend {
+var backendPaths = []string{
+	"environments",
+	"regions",
+	"stacks",
+}
 
-	confDir := path.Join(dir, "environments")
-	if !pathExists(confDir) {
-		confDir = path.Join(dir, "regions")
+func New(dir string) *backend {
+	var confDir string
+
+	for _, confPath := range backendPaths {
+		confDir = path.Join(dir, confPath)
+		if pathExists(confDir) {
+			break
+		}
 	}
 
 	cs := newConfigStore(confDir)
