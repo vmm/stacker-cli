@@ -33,7 +33,7 @@ func TestConfigStoreInternalFetch(t *testing.T) {
 				stackConfig{
 					Name:         "Foo-VPC",
 					TemplateName: "VPC",
-					Capabilities: "CAPABILITIES_IAM",
+					Capabilities: []string{"CAPABILITIES_IAM"},
 					Parameters: map[string]interface{}{
 						"Bar":     "123abc",
 						"Name":    "ProductionVPC",
@@ -50,7 +50,7 @@ func TestConfigStoreInternalFetch(t *testing.T) {
 			Stacks: []stackConfig{
 				stackConfig{Name: "Foo-VPC",
 					TemplateName: "VPC",
-					Capabilities: "CAPABILITIES_IAM",
+					Capabilities: []string{"CAPABILITIES_IAM"},
 					Parameters: map[string]interface{}{
 						"VpcCIDR": "10.11.0.0/16",
 						"Name":    "SandboxVPC",

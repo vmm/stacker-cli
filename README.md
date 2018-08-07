@@ -77,7 +77,7 @@ stacks:
       AvailabilityZone: us-east-1b
 
   - name: API # The stack name implies the template # templates/API.{yml, yaml, json}
-    capabilities: CAPABILITY_IAM # give permission to create IAM resources
+    capabilities: [CAPABILITY_IAM] # give permission to create IAM resources
     parameters:
       Subnets: *PublicSubnets
 ```
@@ -90,7 +90,7 @@ Each stack configuration takes the following format:
 - name: StackName
   region: us-east-1
   template_name: NameOfTemplate
-  capabilities: CAPABILITY_IAM
+  capabilities: [CAPABILITY_IAM]
   parameters:
     Name: BestStack # Literal, string parameter
     FileDataParam:

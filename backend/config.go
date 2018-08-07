@@ -27,7 +27,7 @@ type stackConfig struct {
 	Name         string
 	Region       string
 	TemplateName string `yaml:"template_name"`
-	Capabilities string
+	Capabilities []string
 	Parameters   map[string]interface{}
 }
 
