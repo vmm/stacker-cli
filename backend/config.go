@@ -1,10 +1,13 @@
 package backend
 
 import (
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+
+	"github.com/pkg/errors"
 
 	"gopkg.in/yaml.v2"
 )
@@ -152,7 +155,7 @@ func (s *configStore) load() error {
 
 		c, err := readConfig(r)
 		if err != nil {
-			return err
+			return errors.Wrap(err, fmt.Sprintf("error parsing file at %s", path))
 		}
 
 		s.d[key] = c
