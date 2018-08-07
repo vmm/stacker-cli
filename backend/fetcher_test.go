@@ -3,9 +3,10 @@ package backend
 import (
 	"testing"
 
-	"github.com/eyeamera/stacker-cli/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+
+	"github.com/eyeamera/stacker-cli/stacker"
 )
 
 type fakeConfigStore struct {
@@ -14,6 +15,12 @@ type fakeConfigStore struct {
 
 func (f *fakeConfigStore) Fetch(name string) ([]stackConfig, error) {
 	r := f.Called(name)
+	so, _ := r.Get(0).([]stackConfig)
+	return so, r.Error(1)
+}
+
+func (f *fakeConfigStore) FetchAll() ([]stackConfig, error) {
+	r := f.Called()
 	so, _ := r.Get(0).([]stackConfig)
 	return so, r.Error(1)
 }
@@ -59,7 +66,7 @@ func TestFetcherFetch(t *testing.T) {
 	s, err := f.Fetch(stackName)
 
 	// ensure we've got the template body and the correct set of params
-	expected := []client.Stack{
+	expected := []stacker.Stack{
 		&stack{
 			name:         stackName,
 			templateBody: tmpl.body,

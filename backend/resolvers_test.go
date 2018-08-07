@@ -3,8 +3,9 @@ package backend
 import (
 	"testing"
 
-	"github.com/eyeamera/stacker-cli/client"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/eyeamera/stacker-cli/stacker"
 )
 
 func TestResolveFile(t *testing.T) {
@@ -12,9 +13,9 @@ func TestResolveFile(t *testing.T) {
 	cases := []struct {
 		key   string
 		param interface{}
-		stack StackInfo
+		stack stacker.Stack
 
-		expected client.StackParam
+		expected stacker.StackParam
 		errored  bool
 	}{
 		{

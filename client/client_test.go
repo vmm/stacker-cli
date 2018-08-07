@@ -10,20 +10,22 @@ import (
 	"github.com/aws/aws-sdk-go/service/cloudformation"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+
+	"github.com/eyeamera/stacker-cli/stacker"
 )
 
 type fakeStack struct {
 	name         string
 	templateBody string
-	params       StackParams
+	params       []stacker.StackParam
 	capabilities []string
 }
 
-func (s *fakeStack) Name() string                 { return s.name }
-func (s *fakeStack) Region() string               { return "" }
-func (s *fakeStack) TemplateBody() string         { return s.templateBody }
-func (s *fakeStack) Params() (StackParams, error) { return s.params, nil }
-func (s *fakeStack) Capabilities() []string       { return s.capabilities }
+func (s *fakeStack) Name() string                          { return s.name }
+func (s *fakeStack) Region() string                        { return "" }
+func (s *fakeStack) TemplateBody() string                  { return s.templateBody }
+func (s *fakeStack) Params() ([]stacker.StackParam, error) { return s.params, nil }
+func (s *fakeStack) Capabilities() []string                { return s.capabilities }
 
 type fakeStackParam struct {
 	key         string
@@ -459,7 +461,7 @@ func TestCreateChangeSet(t *testing.T) {
 	)
 
 	scenarios := []struct {
-		stack       Stack
+		stack       stacker.Stack
 		createErr   error
 		getResponse *cloudformation.DescribeChangeSetOutput
 		getErr      error
@@ -471,7 +473,7 @@ func TestCreateChangeSet(t *testing.T) {
 			&fakeStack{
 				name:         stackName,
 				templateBody: "the-template",
-				params: StackParams{
+				params: []stacker.StackParam{
 					&fakeStackParam{key: "Name", value: "FooVPC"},
 					&fakeStackParam{key: "VpcCIDR", value: "10.111.0.0/16"},
 				},
@@ -507,7 +509,7 @@ func TestCreateChangeSet(t *testing.T) {
 			&fakeStack{
 				name:         stackName,
 				templateBody: "the-template",
-				params: StackParams{
+				params: []stacker.StackParam{
 					&fakeStackParam{key: "Name", value: "FooVPC"},
 					&fakeStackParam{key: "VpcCIDR", value: "10.111.0.0/16"},
 				},
@@ -523,7 +525,7 @@ func TestCreateChangeSet(t *testing.T) {
 			&fakeStack{
 				name:         stackName,
 				templateBody: "the-template",
-				params: StackParams{
+				params: []stacker.StackParam{
 					&fakeStackParam{key: "Name", value: "FooVPC"},
 					&fakeStackParam{key: "VpcCIDR", value: "10.111.0.0/16"},
 				},

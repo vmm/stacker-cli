@@ -12,7 +12,7 @@ func TestConfigStoreInternalFetch(t *testing.T) {
 	s := newConfigStore(TestEnvsDir)
 	assert.Nil(t, s.d)
 
-	s.fetch()
+	s.fetch(nil)
 
 	expected := configStoreMap{
 		"production": config{
@@ -34,7 +34,11 @@ func TestConfigStoreInternalFetch(t *testing.T) {
 					Name:         "Foo-VPC",
 					TemplateName: "VPC",
 					Capabilities: "CAPABILITIES_IAM",
-					Parameters:   map[string]interface{}{"Name": "ProductionVPC"},
+					Parameters: map[string]interface{}{
+						"Bar":     "123abc",
+						"Name":    "ProductionVPC",
+						"VpcCIDR": "10.21.0.0/16",
+					},
 				},
 			},
 		},
