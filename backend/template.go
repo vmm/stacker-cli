@@ -80,7 +80,7 @@ func parseTemplate(path string) (*template, error) {
 	if strings.HasSuffix(path, ".yaml") || strings.HasSuffix(path, ".yml") {
 		data, err = yaml.YAMLToJSON(data)
 		if err != nil {
-			return nil, fmt.Errorf("invalid YAML template: %s", err)
+			return nil, fmt.Errorf("invalid YAML template %s: %s", path, err)
 		}
 	}
 
