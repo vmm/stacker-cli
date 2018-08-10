@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/awslabs/goformation"
-	"github.com/ghodss/yaml"
+	"github.com/awslabs/goformation/cloudformation"
 )
 
 var (
@@ -76,17 +76,14 @@ func parseTemplate(path string) (*template, error) {
 		return nil, err
 	}
 
-	data := raw
+	var cft *cloudformation.Template
 	if strings.HasSuffix(path, ".yaml") || strings.HasSuffix(path, ".yml") {
-		data, err = yaml.YAMLToJSON(data)
-		if err != nil {
-			return nil, fmt.Errorf("invalid YAML template %s: %s", path, err)
-		}
+		cft, err = goformation.ParseYAML(raw)
+	} else {
+		cft, err = goformation.ParseJSON(raw)
 	}
-
-	cft, err := goformation.Parse(data)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid template %s: %s", path, err)
 	}
 
 	p := make([]string, 0)
