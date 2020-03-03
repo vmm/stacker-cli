@@ -10,12 +10,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/eyeamera/stacker-cli/client"
-	"github.com/eyeamera/stacker-cli/stacker"
 	"github.com/fatih/color"
 	"github.com/jawher/mow.cli"
 	"github.com/olekukonko/tablewriter"
 	"github.com/pkg/errors"
+	"github.com/pmezard/go-difflib/difflib"
+
+	"github.com/eyeamera/stacker-cli/client"
+	"github.com/eyeamera/stacker-cli/stacker"
 )
 
 var (
@@ -478,6 +480,18 @@ func review(stacker *client.Client, changeSet *client.ChangeSetInfo) {
 	}
 
 	reviewStackParams(changeSet.Params, stackInfo.Params)
+
+	stackTemplate, err := stacker.GetTemplate(changeSet.StackName)
+	if err != nil {
+		exitWithError(fmt.Errorf("error fetching template for stack %s", changeSet.StackName))
+	}
+
+	changeSetTemplate, err := stacker.GetChangeSetTemplate(changeSet.StackName, changeSet.Name)
+	if err != nil {
+		exitWithError(fmt.Errorf("error fetching template for changeset %s", changeSet.Name))
+	}
+
+	reviewStackTemplate(stackTemplate, changeSetTemplate)
 }
 
 // Apply executes a changeset against a stack
@@ -715,6 +729,22 @@ func reviewStackParams(local client.StackParamInfos, remote client.StackParamInf
 	table.Render()
 
 	fmt.Printf("%s\n%s\n", bold(underline("Stack Params:")), buffer.String())
+}
+
+func reviewStackTemplate(oldTemplate, newTemplate string) {
+	diff := difflib.UnifiedDiff{
+		A:        difflib.SplitLines(string(oldTemplate)),
+		B:        difflib.SplitLines(string(newTemplate)),
+		FromFile: "Before",
+		ToFile:   "After",
+		Context:  3,
+	}
+	templateDiff, err := difflib.GetUnifiedDiffString(diff)
+	if err != nil {
+		exitWithError(fmt.Errorf("error diffing template: %v", err))
+	}
+
+	fmt.Printf("%s\n\n%s\n", bold(underline("Stack Template:")), templateDiff)
 }
 
 func changeSetHasChanges(changeSet *client.ChangeSetInfo) bool {

@@ -206,8 +206,7 @@ func TestGetTemplate(t *testing.T) {
 
 	for _, s := range scenarios {
 		cf.On("GetTemplate", &cloudformation.GetTemplateInput{
-			StackName:     aws.String(stackName),
-			TemplateStage: aws.String("Processed"),
+			StackName: aws.String(stackName),
 		}).Once().Return(s.response, s.err)
 
 		si, err := c.GetTemplate(stackName)

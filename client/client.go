@@ -119,11 +119,9 @@ func (c *Client) Get(stackName string) (*StackInfo, error) {
 
 // GetTemplate retrieves a stack's underlying template
 func (c *Client) GetTemplate(stackName string) (string, error) {
-	input := &cf.GetTemplateInput{
-		StackName:     aws.String(stackName),
-		TemplateStage: aws.String(cf.TemplateStageProcessed),
-	}
-	output, err := c.cf.GetTemplate(input)
+	output, err := c.cf.GetTemplate(&cf.GetTemplateInput{
+		StackName: aws.String(stackName),
+	})
 	if err != nil {
 		return "", errors.Wrap(err, "unable to fetch template")
 	}
@@ -157,6 +155,24 @@ func (c *Client) GetChangeSet(stackName string, changeSetName string) (*ChangeSe
 	}
 
 	return newChangeSetInfo(output), nil
+}
+
+// GetChangeSetTemplate returns the template for a pending changeset
+func (c *Client) GetChangeSetTemplate(stackName string, changeSetName string) (string, error) {
+	input := &cf.GetTemplateInput{
+		ChangeSetName: aws.String(changeSetName),
+		StackName:     aws.String(stackName),
+		TemplateStage: aws.String(cf.TemplateStageProcessed),
+	}
+	output, err := c.cf.GetTemplate(input)
+	if err != nil {
+		return "", errors.Wrap(err, "unable to fetch template")
+	}
+
+	if output.TemplateBody != nil {
+		return *output.TemplateBody, nil
+	}
+	return "", nil
 }
 
 // GetResources fetches a Stack's resource information
